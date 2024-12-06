@@ -1,0 +1,76 @@
+import time
+import requests
+import Adafruit_DHT
+import smbus2
+import I2C_LCD_driver
+
+# ThingSpeak Write API Key
+THINGSPEAK_API_KEY = "YOUR_API_KEY"
+
+# GPIO Pins
+TEMP_SENSOR_PIN = 4  # GPIO pin for DHT11
+HEARTBEAT_SENSOR_PIN = 17  # GPIO pin for heartbeat sensor
+
+# Thresholds
+TEMP_THRESHOLD = 38.0  # Celsius
+HEARTBEAT_THRESHOLD = 100  # BPM
+
+# Initialize LCD
+lcd = I2C_LCD_driver.lcd()
+
+def read_temperature():
+    """Reads temperature from DHT11 sensor."""
+    humidity, temperature = Adafruit_DHT.read_retry(Adafruit_DHT.DHT11, TEMP_SENSOR_PIN)
+    if temperature is not None:
+        return temperature
+    else:
+        print("Error reading temperature")
+        return 0
+
+def read_heartbeat():
+    """Simulates reading heartbeat from a digital sensor."""
+    # In reality, you'll use GPIO.input() with a proper pulse sensor library
+    import random
+    return random.randint(60, 120)  # Simulate heartbeat values for testing
+
+def upload_to_thingspeak(temperature, heartbeat):
+    """Uploads data to ThingSpeak."""
+    try:
+        url = f"https://api.thingspeak.com/update?api_key={THINGSPEAK_API_KEY}&field1={temperature}&field2={heartbeat}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            print("Data uploaded to ThingSpeak")
+        else:
+            print(f"Failed to upload data: {response.status_code}")
+    except Exception as e:
+        print(f"Error uploading to ThingSpeak: {e}")
+
+def send_alert(message):
+    """Sends an alert message (e.g., via Telegram or SMS)."""
+    print(f"ALERT: {message}")
+    # Add code for Telegram or SMS integration (e.g., Twilio, Telegram bot API)
+
+def main():
+    while True:
+        # Read sensors
+        temperature = read_temperature()
+        heartbeat = read_heartbeat()
+
+        # Display on LCD
+        lcd.lcd_display_string(f"Temp: {temperature:.1f}C", 1)
+        lcd.lcd_display_string(f"Heart: {heartbeat} BPM", 2)
+
+        # Check thresholds and send alerts
+        if temperature > TEMP_THRESHOLD:
+            send_alert(f"High Temperature: {temperature:.1f}C")
+        if heartbeat > HEARTBEAT_THRESHOLD:
+            send_alert(f"High Heartbeat: {heartbeat} BPM")
+
+        # Upload data to ThingSpeak
+        upload_to_thingspeak(temperature, heartbeat)
+
+        # Wait before next reading
+        time.sleep(15)
+
+if __name__ == "__main__":
+    main()
